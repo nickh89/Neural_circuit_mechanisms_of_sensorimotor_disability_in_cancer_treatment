@@ -52,7 +52,7 @@ ptm <- proc.time()
 
 ########################### set dirs ########################### 
 data_Name<- 'ZZZZZZZZ'   ### fill with name of file
-mainDir <- "~/Dropbox/papers_dropbox/circuits_2021/" ### set this filepath to the main directory 
+mainDir <- "~/Dropbox/papers_dropbox/circuits_2021" ### set this filepath to the main directory 
 figDir <- "Figures" ## this is the subdirectory where data is held
 dataDir <- "Data"
 dataFinalFold <- "Final"
@@ -170,29 +170,87 @@ rm(fig1_plots, cols, cols_filter, sum_behaviours, i, encoding_params)
 
 
 ## filter out COX and Pirc
+# df_WT_POX <- df%>%filter(treatment_text %in% c('WT', 'POX'))
+# 
+# df_WT_POX_t<-t(df_WT_POX[cols_filter][,-(1:6)]) ## just WT and POX neurons
+# colnames(df_WT_POX_t) <- df_WT_POX$treatment_text
+# 
+# res.pca <- PCA(t(df_WT_POX_t), graph = FALSE)
+# var <- get_pca_var(res.pca)
+# eig.val <- get_eigenvalue(res.pca)
+# 
+# fviz_pca_ind(res.pca,
+#              geom.ind = "point", # show points only (nbut not "text")
+#              col.ind = rownames(t(df_WT_POX_t)), # color by groups
+#              paletteNature2018 = c("#808080","#3e5ce0","#db0415","#933bd3"),
+#              addEllipses = TRUE, # Concentration ellipses
+#              legend.title = "Groups"
+# )
+# res.desc <- dimdesc(res.pca, axes = c(1,2), proba = 0.05)
+# res.desc$Dim.1
+# 
+# setwd(file.path(mainDir,figDir,figFolder))
+# cairo_ps("Fig2_b.eps")
+# fviz_pca_var(res.pca, col.var = "black", repel=T, select.var= list(name = c("Dyn.pfr",  "Stat.spkNum",  "Thr.L", "Thr.L1", "Dyn.spkNum" ,"Stat.mSfr","Dyn.slp3","Dyn.pfr1")))
+# invisible(suppressMessages(suppressWarnings(dev.off())))
+# 
+
+####### PCA updated 5/31/21 originally retraced steps on 9/28/21 ###### 
+df<-Original_Data[cols_filter]
+
 df_WT_POX <- df%>%filter(treatment_text %in% c('WT', 'POX'))
-
-df_WT_POX_t<-t(df_WT_POX[cols_filter][,-(1:6)]) ## just WT and POX neurons
-colnames(df_WT_POX_t) <- df_WT_POX$treatment_text
-
-res.pca <- PCA(t(df_WT_POX_t), graph = FALSE)
+test<-t(df_WT_POX[cols_filter][,-(1:6)]) ## just WT and POX neurons
+colnames(test) <- df_WT_POX$treatment_text
+require(FactoMineR)
+require(factoextra)
+res.pca <- PCA(t(test), graph = FALSE)
 var <- get_pca_var(res.pca)
 eig.val <- get_eigenvalue(res.pca)
+### write data
+setwd(file.path(mainDir,dataDir,saveFolder))
+write.csv(cbind(res.pca$ind$coord, df_WT_POX[,(1:6)]), "pox_wt_res.pca.csv")
 
-fviz_pca_ind(res.pca,
-             geom.ind = "point", # show points only (nbut not "text")
-             col.ind = rownames(t(df_WT_POX_t)), # color by groups
-             paletteNature2018 = c("#808080","#3e5ce0","#db0415","#933bd3"),
-             addEllipses = TRUE, # Concentration ellipses
-             legend.title = "Groups"
-)
-res.desc <- dimdesc(res.pca, axes = c(1,2), proba = 0.05)
-res.desc$Dim.1
 
-setwd(file.path(mainDir,figDir,figFolder))
-cairo_ps("Fig2_b.eps")
+## biplot --> must look at the specifics Fig 2c
 fviz_pca_var(res.pca, col.var = "black", repel=T, select.var= list(name = c("Dyn.pfr",  "Stat.spkNum",  "Thr.L", "Thr.L1", "Dyn.spkNum" ,"Stat.mSfr","Dyn.slp3","Dyn.pfr1")))
-invisible(suppressMessages(suppressWarnings(dev.off())))
+dimdesc(res.pca, axes = c(1,2), proba = 0.05)
+PCA(t(test), graph = FALSE)
+fviz_pca_biplot(res.pca,
+                col.ind = rownames(t(test)), palette = "jco",
+                addEllipses = TRUE, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species")
+
+### read data for plot 2a
+data_Name<- 'pox_wt_res.pca.csv'   ### fill with name of file
+wt_pox_pca_decoding_1<-read.csv(file.path(mainDir,dataDir,saveFolder,data_Name), 
+                        header = TRUE, sep = ',',check.names = FALSE)
+
+df_1<-wt_pox_pca_decoding %>% rename(
+  V1 = Dim.1,
+  V2 = Dim.2,
+  V3 = Dim.3,
+  merged = treatment_class) %>%
+  select(merged, treatment_text, V1, V2) 
+# %>% filter(merged !='WT_II') #### used to check the 7th group because shape discrimination only allows 6
+
+### plot 2a 
+ggscatter(df_1, x = "V1", y = "V2",
+          color = "merged",
+          # palette = "npg",
+          palette = c("#703B96", "#703B96", "#703B96", "#703B96", "#010101", "#010101", "#010101", "#010101"),
+          # shape = "merged",
+          # shape = c(15,16,17,18,15,16,17,18),
+          ellipse = TRUE,
+          ellipse.level = 0.95,
+          ellipse.type = "confidence",
+          mean.point = TRUE,
+          star.plot = F,
+          ggtheme = theme_minimal())
+
+### plot Fig 2b
+fviz_eig(res.pca, addlabels = TRUE, ylim = c(0, 50))
+
 
 ################################################################
 ########################### Figure 3 ########################### 
